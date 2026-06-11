@@ -20,5 +20,54 @@ El objetivo de este proyecto es, primero, estimar el tiempo medio de fallo del s
 
 Como segundo objetivo, se desea analizar, dadas dos posibles mejoras para el sistema, cuál es mejor. Las dos opciones son: contratar dos operarios, o bien comprar otra caja extra como repuesto. Para ello también estimaremos el tiempo medio de fallo del sistema. Luego, al igual que para el sistema original, querremos crear una hipótesis sobre la distribución que podría tener dicho tiempo medio.
 
+## Resolución
 
+Primero escribimos un programa que simule este modelo para *N* cajas registradoras, *S* cajas de respuesto, *TF* tiempo medio hasta fallar de las máquinas y *TR* tiempo medio que tarda el técnico en repararlas.
+
+Usamos las siguientes variables:
+
+* **Tiempo *t***: tiempo de simulación transcurrido
+* **Estado *r***: número de cajas que están averiadas (en reparación o en espera de ser reparadas) al tiempo *t*.
+* **Distribución de falla *F***: generará los tiempos hasta la próxima falla de cada máquina en uso.
+* **Distribución de reparación *G***: generará los tiempos que tarda el técnico en reparar cada máquina.
+* **Tiempo *t****: tiempo de finalización de reparación actual (t + tiempo generado por G).
+* **Tiempo de colapso *T***: tiempo en el que el sistema colapsó.
+
+El algoritmo implementado puede desglosarse en pasos:
+
+1. Se inicializan las variables y otras estructuras auxiliares para el correcto funcionamiento del programa: 
+   * *t*, *r* = 0
+   * Se crea un arreglo vacío que simule la cola para cajas esperando a ser reparadas (*Qr*).
+   * Se crea un arreglo con los *N* tiempos de falla para cada una de las cajas, generados por *F* (*Tf*), con los tiempos ordenados de menor a mayor.
+   * *t* * = infinito (todavía no hay ninguna caja en reparación).
+
+Mientras la cantidad de cajas averiadas *r* no supere a la cantidad de cajas de repuesto *S*:
+
+2. Encuentro el próximo evento a ocurrir, ya sea el fallo de una caja o la finalización de alguna reparación:
+
+   * **Si es un fallo**: 
+
+     i. Actualizo el tiempo transcurrido *t*, aumento las cajas averiadas *r* y agrego la caja a la cola de reparación.
+
+     ii. Chequeo si las cajas averiadas *r* superan a los repuestos *S*, si lo hacen, finalizo la simulación.
+
+     iii.. Si hay una sola caja averiada, entonces genero un tiempo de demora de reparación con *G* y actualizo *t* *.
+
+     iv. Actualizo el tiempo de falla de la caja en mi arreglo *Tf* a infinito, hasta que termine de repararse.
+
+     v. Reordeno mi arreglo *Tf*.
+
+   * **Si es la finalización de la reparación:**
+
+     i. Actualizo el tiempo transcurrido *t*, disminuyo las cajas averiadas *r* y quito la caja de la cola de reparación.
+
+     ii. Genero un nuevo tiempo de falla para la caja, con F, y actualizo *Tf*.
+
+     iii. Si tengo cajas averiadas aún, genero un nuevo tiempo de demora de reparación con *G* . Sino, no genero nada. Actualizo *t* * dependiendo del caso (con un nuevo tiempo o con infinito).
+
+     iv. Reordeno mi arreglo *Tf*.
+
+Cuando la cantidad de cajas averiadas *r* supere a los repuestos *S*:
+
+3. Asigno a *T* el tiempo transcurrido *t* y lo doy como dato de salida.
 
