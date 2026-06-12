@@ -39,43 +39,39 @@ def sim_reparacion(N, S, TF, TR, generar_falla, generar_reparacion):
         tiempos_falla.append(fi)
     tiempos_falla.sort()
     # Tiempo de finalización de reparación actual
-    tr = inf
+    tiempo_fin_rep = inf
     # Mientras las máquinas averiadas no superes las de repuesto
     while r <= S:
         # Registro si viene primero una falla o un final de reparación.
         # tiempos_falla se mantiene siempre ordenado, el primer tiempo
         # es el más pequeño (el más temprano).
-        prox_evento = min(tiempos_falla[0], tr)
+        prox_evento = min(tiempos_falla[0], tiempo_fin_rep)
         # Si viene primero una falla...
         if prox_evento == tiempos_falla[0]:
             t = prox_evento
             r += 1
             if r > S:
-                print("COLAPSO del sistema")
                 break
             # Si es la única máquina averiada, la reparo.
             if r == 1:
                 rep = generar_reparacion(TR)
-                tr = t + rep
-            # La máquina no tiene tiempo de falla asignado porque ya falló.
-            tiempos_falla[0] = inf
+                tiempo_fin_rep = t + rep
+            # La máquina es reemplazada por un repuesto con su tiempo de falla.
+            nueva_falla = generar_falla(TF)
+            tiempos_falla[0] = t + nueva_falla
             tiempos_falla.sort()
         # Si viene primero un tiempo de finalización de reparación...
         else:
-            t = tr 
+            t = tiempo_fin_rep 
             r -= 1
-            # Genero un nuevo tiempo de falla para la máquina reparada.
-            nueva_falla = generar_falla(TF)
-            tiempos_falla.append(t + nueva_falla)
             # Si hay otras máquinas averiadas, genero tiempo de reparación
             # para la siguiente.
             if r > 0:
                 rep = generar_reparacion(TR)
-                tr = t + rep
+                tiempo_fin_rep = t + rep
             # Sino, no
             else:
-                tr = inf
-            tiempos_falla.sort()
+                tiempo_fin_rep = inf
     # Registro el tiempo de colapso
     T = t
     return T

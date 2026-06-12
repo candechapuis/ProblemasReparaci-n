@@ -28,17 +28,17 @@ Usamos las siguientes variables:
 
 * **Tiempo *t***: tiempo de simulación transcurrido
 * **Estado *r***: número de cajas que están averiadas (en reparación o en espera de ser reparadas) al tiempo *t*.
-* **Distribución de falla *F***: generará los tiempos hasta la próxima falla de cada máquina en uso.
-* **Distribución de reparación *G***: generará los tiempos que tarda el técnico en reparar cada máquina.
-* **Tiempo *t****: tiempo de finalización de reparación actual (t + tiempo generado por G).
+* **Generadora de tiempos de falla *generar_falla***: generará los tiempos de funcionamiento de las máquinas desde que entran en uso hasta que fallan.
+* **Generadora de tiempo de reparación *generar_reparacion***: generará los tiempos que tarda el técnico en reparar cada máquina.
+* **Tiempo *tiempo_fin_rep*** : tiempo de finalización de reparación actual (t + tiempo generado por G).
 * **Tiempo de colapso *T***: tiempo en el que el sistema colapsó.
 
 El algoritmo implementado puede desglosarse en pasos:
 
 1. Se inicializan las variables y otras estructuras auxiliares para el correcto funcionamiento del programa: 
    * *t*, *r* = 0
-   * Se crea un arreglo con los *N* tiempos de falla para cada una de las cajas, generados por *F* (*Tf*), con los tiempos ordenados de menor a mayor.
-   * *t* * = infinito (todavía no hay ninguna caja en reparación).
+   * Se crea un arreglo *tiempos_falla* con los *N* tiempos de falla para cada una de las cajas en funcionamiento, ya sean originales o repuestos. Son generados por *generar_falla*. El arreglo debe quedar con los tiempos ordenados de menor a mayor.
+   * *tiempo_fin_rep* = infinito (todavía no hay ninguna caja en reparación).
 
 Mientras la cantidad de cajas averiadas *r* no supere a la cantidad de cajas de repuesto *S*:
 
@@ -50,21 +50,17 @@ Mientras la cantidad de cajas averiadas *r* no supere a la cantidad de cajas de 
 
      ii. Chequeo si las cajas averiadas *r* superan a los repuestos *S*, si lo hacen, finalizo la simulación.
 
-     iii.. Si hay una sola caja averiada, entonces genero un tiempo de demora de reparación con *G* y actualizo *t* *.
+     iii.. Si hay una sola caja averiada, entonces genero un tiempo de demora de reparación con *G* y actualizo *tiempo_fin_rep*.
 
-     iv. Actualizo el tiempo de falla de la caja en mi arreglo *Tf* a infinito, hasta que termine de repararse.
-
-     v. Reordeno mi arreglo *Tf*.
+     iv. Genero un nuevo tiempo de funcionamiento con *generar_falla* para el repuesto que reemplaza a la caja averiada y se lo asigno en el arreglo *tiempos_falla*. Luego reordeno mi arreglo *tiempos_falla*. 
 
    * **Si es la finalización de la reparación:**
 
      i. Actualizo el tiempo transcurrido *t*, disminuyo las cajas averiadas *r*.
 
-     ii. Genero un nuevo tiempo de falla para la caja, con F, y actualizo *Tf*.
+     ii. Si tengo cajas averiadas aún, genero un nuevo tiempo de demora de reparación con *generar_reparacion* . Sino, no genero nada. 
 
-     iii. Si tengo cajas averiadas aún, genero un nuevo tiempo de demora de reparación con *G* . Sino, no genero nada. Actualizo *t* * dependiendo del caso (con un nuevo tiempo o con infinito).
-
-     iv. Reordeno mi arreglo *Tf*.
+     iii. Actualizo *tiempo_fin_rep* dependiendo del caso (con un nuevo tiempo o con infinito).
 
 Cuando la cantidad de cajas averiadas *r* supere a los repuestos *S*:
 
