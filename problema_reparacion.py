@@ -93,12 +93,11 @@ N_maquinas = 7
 S_repuestos = 3
 TF_medio = 1.0     # 1 mes
 TR_medio = 1/8.0   # 0.125 meses
-M = 10000          # Simulaciones de Monte Carlo (Cap. 4)
+M = 10000          
 
 print(f"Ejecutando {M} simulaciones del sistema...")
 tiempos_reales = np.array([sim_reparacion(N_maquinas, S_repuestos, TF_medio, TR_medio,expovariate, expovariate) for _ in range(M)])
 
-# Estimadores insesgados según Sección 7.3.4 y 7.3.5
 media_muestral = np.mean(tiempos_reales)
 desvio_muestral = np.std(tiempos_reales, ddof=1) # ddof=1 para estimador S (muestral)
 
@@ -126,7 +125,6 @@ def calcular_T_Pearson(datos, bins, params):
     esp = np.where(esp < 0.1, 0.1, esp) 
     return np.sum((obs - esp)**2 / esp)
 
-# 1. Estimamos parámetros de la Gamma para nuestros datos reales
 params_reales_g = stats.gamma.fit(tiempos_reales)
 k_bins = 20 
 _, bins_test = np.histogram(tiempos_reales, bins=k_bins)
@@ -138,11 +136,8 @@ M_pvalor = 1000 # Número de muestras para el test
 conteo_extremos = 0
 
 for _ in range(M_pvalor):
-    # Generamos muestra ficticia bajo H0 (Gamma perfecta)
     muestra_ficticia = stats.gamma.rvs(*params_reales_g, size=M)
     
-    # RE-ESTIMAMOS: Calculamos nuevos parámetros para la muestra de la PC
-    # Es obligatorio para parámetros no especificados (Pág. 147)
     params_ficticios = stats.gamma.fit(muestra_ficticia)
     
     # Calculamos T sim contra su propia estimación
@@ -157,7 +152,6 @@ print(f"\nRESULTADOS PUNTO C (Bondad de Ajuste Gamma):")
 print(f"Estadístico T observado: {t_obs:.4f}")
 print(f"p-valor: {p_valor:.4f}")
 
-# Decisión estadística (Pág. 143)
 if p_valor < 0.05:
     print("CONCLUSIÓN: Se rechaza H0 (La Gamma no ajusta bien).")
 else:
@@ -167,7 +161,6 @@ else:
 # =============================================================================
 def calcular_T_Pearson_Normal(datos, bins, mu, sigma):
     obs, _ = np.histogram(datos, bins=bins)
-    # Probabilidad teórica usando la CDF Normal (Pág. 25)
     esp = (stats.norm.cdf(bins[1:], loc=mu, scale=sigma) - 
            stats.norm.cdf(bins[:-1], loc=mu, scale=sigma)) * len(datos)
     esp = np.where(esp < 0.1, 0.1, esp)
@@ -181,7 +174,6 @@ print("Simulando p-valor Normal...")
 excesos_n = 0
 for _ in range(M_pvalor):
     muestra_f = stats.norm.rvs(loc=mu_n_r, scale=sigma_n_r, size=M)
-    # Re-estimamos media y desvío para la muestra ficticia (Pág. 147)
     mu_f, sigma_f = stats.norm.fit(muestra_f) 
     if calcular_T_Pearson_Normal(muestra_f, bins_test, mu_f, sigma_f) >= t_obs_n:
         excesos_n += 1
