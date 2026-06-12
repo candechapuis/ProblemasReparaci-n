@@ -37,7 +37,6 @@ El algoritmo implementado puede desglosarse en pasos:
 
 1. Se inicializan las variables y otras estructuras auxiliares para el correcto funcionamiento del programa: 
    * *t*, *r* = 0
-   * Se crea un arreglo vacío que simule la cola para cajas esperando a ser reparadas (*Qr*).
    * Se crea un arreglo con los *N* tiempos de falla para cada una de las cajas, generados por *F* (*Tf*), con los tiempos ordenados de menor a mayor.
    * *t* * = infinito (todavía no hay ninguna caja en reparación).
 
@@ -47,7 +46,7 @@ Mientras la cantidad de cajas averiadas *r* no supere a la cantidad de cajas de 
 
    * **Si es un fallo**: 
 
-     i. Actualizo el tiempo transcurrido *t*, aumento las cajas averiadas *r* y agrego la caja a la cola de reparación.
+     i. Actualizo el tiempo transcurrido *t*, aumento las cajas averiadas *r*.
 
      ii. Chequeo si las cajas averiadas *r* superan a los repuestos *S*, si lo hacen, finalizo la simulación.
 
@@ -59,7 +58,7 @@ Mientras la cantidad de cajas averiadas *r* no supere a la cantidad de cajas de 
 
    * **Si es la finalización de la reparación:**
 
-     i. Actualizo el tiempo transcurrido *t*, disminuyo las cajas averiadas *r* y quito la caja de la cola de reparación.
+     i. Actualizo el tiempo transcurrido *t*, disminuyo las cajas averiadas *r*.
 
      ii. Genero un nuevo tiempo de falla para la caja, con F, y actualizo *Tf*.
 
@@ -70,4 +69,6 @@ Mientras la cantidad de cajas averiadas *r* no supere a la cantidad de cajas de 
 Cuando la cantidad de cajas averiadas *r* supere a los repuestos *S*:
 
 3. Asigno a *T* el tiempo transcurrido *t* y lo doy como dato de salida.
+
+*Aclaración:* Para este problema particular, en donde las cajas son idénticas y los tiempos son exponenciales independientes, no es necesario llevar registro de **qué** caja particular falló. Lo importante aquí es **cuántas** cajas están averiadas en simultáneo y si superan o no a la cantidad de repuestos disponibles.
 
