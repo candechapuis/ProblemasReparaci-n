@@ -6,10 +6,10 @@ from math import inf
 from random import expovariate
 
 # =============================================================================
-# SIMULACIÓN DEL MODELO
+# SIMULACIÓN DEL MODELO CON UN TÉCNICO DE REPARACIÓN
 # =============================================================================
 
-def sim_reparacion(N, S, TF, TR, generar_falla, generar_reparacion):
+def sim_reparacion_un_tecnico(N, S, TF, TR, generar_falla, generar_reparacion):
     """
     Simula el tiempo hasta el colapso de un sistema con N máquinas
     operativas y S máquinas de repuesto.
@@ -96,7 +96,7 @@ M = 10000          # Número total de réplicas de simulación
 
 # Genero las M realizaciones del tiempo de colapso del sistema
 print(f"Ejecutando {M} simulaciones del sistema...")
-tiempos_reales = np.array([sim_reparacion(N_maquinas, S_repuestos, TF_medio, TR_medio,expovariate, expovariate) for _ in range(M)])
+tiempos_reales = np.array([sim_reparacion_un_tecnico(N_maquinas, S_repuestos, TF_medio, TR_medio,expovariate, expovariate) for _ in range(M)])
 
 # Estimadores puntuales a partir de la muestra simulada
 media_muestral = np.mean(tiempos_reales)
@@ -282,3 +282,88 @@ plt.legend()
 plt.grid(True, alpha=0.3)
 plt.savefig('grafico_comparativo.png')
 print("--- GRÁFICO GENERADO: 'grafico_comparativo.png' ---")
+
+# =============================================================================
+# SIMULACIÓN DEL MODELO CON DOS TÉCNICOS DE REPARACIÓN
+# =============================================================================
+
+def sim_reparacion_dos_tecnicos(N, S, TF, TR, generar_falla, generar_reparacion):
+    """
+    Simula el tiempo hasta el colapso de un sistema con N máquinas
+    operativas, S máquinas de repuesto y dos técnicos de reparación.
+
+    Parámetros:
+        N (int):
+            Número de máquinas en funcionamiento.
+        S (int):
+            Número de máquinas de repuesto disponibles.
+        TF (float):
+            Tiempo medio de funcionamiento de una máquina antes de fallar.
+        TR (float):
+            Tiempo medio de reparación de una máquina averiada.
+        generar_falla (callable):
+            Función que recibe TF y genera un tiempo aleatorio de
+            funcionamiento antes de la siguiente falla.
+        generar_reparacion (callable):
+            Función que recibe TR y genera un tiempo aleatorio de
+            reparación.
+
+    Dato de salida:
+        T (float):
+            Tiempo de colapso del sistema, medido en la misma unidad que
+            TF y TR.
+    """
+    # Tiempo de simulación transcurrido
+    t = 0
+    # Máquinas averiadas
+    r = 0
+    # Tiempos de falla
+    tiempos_falla = []
+    for i in range(N):
+        fi = generar_falla(TF)
+        tiempos_falla.append(fi)
+    tiempos_falla.sort()
+    # Dos técnicos: cada uno puede tener un tiempo de finalización de reparación.
+    tecnicos_disponibles = 2
+    tiempos_fin_rep = [inf, inf]
+    # Mientras las máquinas averiadas no superes las de repuesto
+    while r <= S:
+        prox_falla = tiempos_falla[0]
+        prox_rep = min(tiempos_fin_rep)
+        prox_evento = min(prox_falla, prox_rep)
+        # Si viene primero una falla...
+        if prox_evento == prox_falla:
+            t = prox_evento
+            r += 1
+            if r > S:
+                break
+            # Si hay técnico libre, inicio una reparación.
+            if tecnicos_disponibles > 0:
+                tecnicos_disponibles -= 1
+                rep = generar_reparacion(TR)
+                for i in range(2):
+                    if tiempos_fin_rep[i] == inf:
+                        tiempos_fin_rep[i] = t + rep
+                        break
+                tiempos_fin_rep.sort()
+            # La máquina es reemplazada por un repuesto con su tiempo de falla.
+            nueva_falla = generar_falla(TF)
+            tiempos_falla[0] = t + nueva_falla
+            tiempos_falla.sort()
+        # Si viene primero una finalización de reparación...
+        else:
+            t = prox_rep
+            # Busco qué técnico terminó su reparación y lo libero.
+            indice = tiempos_fin_rep.index(t)
+            tiempos_fin_rep[indice] = inf
+            tecnicos_disponibles += 1
+            r -= 1
+            # Si aún hay máquinas averiadas y hay técnico libre, asigno otra reparación.
+            if r > 0 and tecnicos_disponibles > 0:
+                tecnicos_disponibles -= 1
+                rep = generar_reparacion(TR)
+                tiempos_fin_rep[indice] = t + rep
+                tiempos_fin_rep.sort()
+    # Registro el tiempo de colapso
+    T = t
+    return T
