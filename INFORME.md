@@ -68,3 +68,127 @@ Cuando la cantidad de cajas averiadas *r* supere a los repuestos *S*:
 
 *Aclaración:* Para este problema particular, en donde las cajas son idénticas y los tiempos son exponenciales independientes, no es necesario llevar registro de **qué** caja particular falló. Lo importante aquí es **cuántas** cajas están averiadas en simultáneo y si superan o no a la cantidad de repuestos disponibles.
 
+# Resultados y Análisis Estadístico (Ejercicio 1)
+
+Para validar el comportamiento del sistema bajo las condiciones iniciales, se realizaron **M = 10.000** simulaciones utilizando los parámetros:
+
+* **N = 7** cajas en funcionamiento.
+* **S = 3** cajas de repuesto.
+* **TF = 1.0** mes (tiempo medio hasta la falla).
+* **TR = 0.125** meses (tiempo medio de reparación).
+
+---
+
+## 1. Estimación de Parámetros (Punto B)
+
+A partir de las muestras obtenidas se calcularon los estimadores puntuales para el tiempo medio de fallo del sistema (MTTF) y su dispersión, utilizando los estimadores muestrales insesgados presentados en las Secciones 7.3.4 y 7.3.5 de las notas.
+
+| Métrica                      | Símbolo   | Valor Simulado |
+| ---------------------------- | --------- | -------------- |
+| Tiempo Medio al Fallo (MTTF) | $\bar{X}$ | 0.5774 meses   |
+| Desviación Estándar Muestral | $S$       | 0.2941 meses   |
+
+### Interpretación de los resultados
+
+El MTTF obtenido (~0.58 meses) es notablemente inferior al tiempo medio de falla individual de una caja registradora ($TF = 1$ mes). Este comportamiento evidencia que el principal factor limitante del sistema es la tasa de falla combinada de las siete cajas operando simultáneamente.
+
+Dado que cada caja falla con tasa $\lambda = 1$, la tasa total de fallas del sistema es aproximadamente:
+
+$$
+\lambda_{total} = 7
+$$
+
+Por otra parte, el técnico posee una tasa media de reparación:
+
+$$
+\mu = \frac{1}{TR} = \frac{1}{0.125} = 8
+$$
+
+La cercanía entre ambas tasas implica que el sistema opera en un régimen de alta utilización. En estas condiciones, pequeñas acumulaciones de fallas pueden superar rápidamente la capacidad de reparación disponible, provocando el colapso del sistema en tiempos relativamente cortos.
+
+---
+
+## 2. Análisis de Distribución y Bondad de Ajuste (Punto C)
+
+Con el objetivo de caracterizar estadísticamente el tiempo hasta el colapso, se analizó el histograma de frecuencias obtenido a partir de las simulaciones y se evaluaron dos modelos probabilísticos alternativos:
+
+* Distribución Gamma.
+* Distribución Normal.
+
+![Comparación de ajustes](grafico_comparativo.png)
+
+### Análisis Morfológico y Físico
+
+El histograma presenta una marcada **asimetría positiva** y una densidad prácticamente nula en el origen ($t = 0$).
+
+Esta característica tiene una interpretación física importante: dado que el sistema dispone de **3 máquinas de repuesto**, resulta imposible que colapse instantáneamente. Para alcanzar el estado de fallo global es necesario acumular al menos **4 fallas simultáneas**.
+
+La Distribución Gamma modela naturalmente este fenómeno mediante su parámetro de forma ($\alpha$), mientras que la Distribución Normal presenta limitaciones evidentes, ya que asigna probabilidad a valores cercanos a cero e incluso a tiempos negativos, los cuales carecen de significado físico en este contexto.
+
+---
+
+### Validación mediante Test $\chi^2$ con Re-estimación
+
+Para evitar el sesgo asociado a la estimación de parámetros sobre la misma muestra utilizada para evaluar el ajuste, se siguió el procedimiento recomendado en las páginas 147 y 155 de las notas de la materia.
+
+Se empleó el estadístico de Pearson:
+
+$$
+T = \sum_{i=1}^{k}\frac{(N_i -n*P_i)^2}{n*P_i}
+$$
+
+donde:
+
+* $O_i$ representa la frecuencia observada en el intervalo $i$.
+* $E_i$ representa la frecuencia esperada bajo la distribución ajustada.
+
+El p-valor fue estimado mediante simulación Monte Carlo con **1.000 iteraciones**, re-estimando los parámetros de cada distribución en cada réplica.
+
+Los resultados obtenidos fueron:
+
+| Distribución Hipotética | Estadístico T (Pearson) | p-valor Simulado | Veredicto           |
+| ----------------------- | ----------------------- | ---------------- | ------------------- |
+| Gamma                   | 13.9419                 | 0.6610           | No se rechaza $H_0$ |
+| Normal                  | 2711.5849               | 0.0000           | Se rechaza $H_0$    |
+
+---
+
+## Conclusión del Análisis
+
+### Rechazo de la Distribución Normal
+
+La hipótesis de normalidad es claramente incompatible con los datos observados. A pesar de la gran cantidad de eventos involucrados, el proceso de colapso no satisface las condiciones necesarias para que el Teorema Central del Límite produzca una aproximación normal adecuada.
+
+La principal razón es que:
+
+* Los tiempos son estrictamente positivos.
+* El proceso presenta una fuerte asimetría.
+* El fallo global depende de la acumulación de eventos discretos de falla.
+
+Estas características generan una distribución sesgada hacia la derecha, incompatible con la simetría propia de la Normal.
+
+### Aceptación de la Distribución Gamma
+
+El ajuste Gamma obtuvo un p-valor de:
+
+$$
+p = 0.6610
+$$
+
+valor ampliamente superior al nivel de significancia habitual:
+
+$$
+\alpha = 0.05
+$$
+
+Por lo tanto, **no existe evidencia estadística suficiente para rechazar la hipótesis de que los datos provienen de una Distribución Gamma**.
+
+Además de su respaldo estadístico, este modelo resulta físicamente consistente con la estructura del problema. El parámetro de forma estimado:
+
+$$
+\alpha \approx 3.64
+$$
+
+sugiere que el colapso ocurre tras la acumulación de aproximadamente cuatro eventos de falla, resultado coherente con el hecho de que el sistema dispone de tres máquinas de repuesto y falla al producirse la cuarta avería simultánea.
+
+En consecuencia, la **Distribución Gamma constituye un modelo estadísticamente robusto y físicamente coherente para describir el tiempo de vida del sistema**.
