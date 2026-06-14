@@ -16,11 +16,11 @@ Todos los tiempos de funcionamiento de las cajas hasta descomponerse son variabl
 
 Este problema es conocido como: **Modelo de reparación**
 
-El objetivo de este proyecto es, primero, estimar el tiempo medio de fallo del sistema y su correspondiente desviación estándar de dicho sistema, para un *N*, *S*, *TF* y *TR* dados. Luego se quiere poder crear una hipótesis sobre la distribución a la que se podría ajustar el tiempo medio y la desviación.
+El objetivo de este proyecto es, primero, estimar el tiempo medio de fallo del sistema y su correspondiente desviación estándar de dicho sistema, para un *N*, *S*, *TF* y *TR* dados. Luego se quiere poder crear una hipótesis sobre la distribución a la que se podría ajustar el tiempo medio.
 
 Como segundo objetivo, se desea analizar, dadas dos posibles mejoras para el sistema, cuál es mejor. Las dos opciones son: contratar dos operarios, o bien comprar otra caja extra como repuesto. Para ello también estimaremos el tiempo medio de fallo del sistema. Luego, al igual que para el sistema original, querremos crear una hipótesis sobre la distribución que podría tener dicho tiempo medio.
 
-## Resolución
+## Primer objetivo: sistema con un técnico.
 
 Primero escribimos un programa que simule este modelo para *N* cajas registradoras, *S* cajas de respuesto, *TF* tiempo medio hasta fallar de las máquinas y *TR* tiempo medio que tarda el técnico en repararlas.
 
@@ -214,3 +214,80 @@ sugiere que el colapso ocurre tras la acumulación de aproximadamente cuatro eve
 Este resultado indica que, de las distribuciones consideradas, la Gamma proporciona el ajuste más adecuado según la prueba de bondad de ajuste realizada. Además, esta conclusión es coherente con la interpretación cualitativa del histograma, ya que los tiempos de colapso son positivos y presentan asimetría hacia la derecha.
 
 En consecuencia, aunque tanto Gamma como Weibull eran candidatas razonables desde el punto de vista morfológico, la prueba estadística favorece claramente a la Distribución Gamma como modelo para describir los tiempos de colapso del sistema simulado.
+
+---------------------
+
+## Segundo objetivo: comparación de mejoras.
+
+### Sistema con dos técnicos
+
+## Simulación del modelo con dos técnicos
+
+## Simulación del modelo con dos técnicos
+
+Para analizar la alternativa de contratar un segundo técnico, escribimos un nuevo programa que simula el modelo de reparación para *N* cajas registradoras, *S* cajas de repuesto, *TF* tiempo medio hasta fallar de las máquinas y *TR* tiempo medio que tarda cada técnico en reparar una máquina.
+
+La estructura general es similar al caso con un solo técnico: cuando una caja en funcionamiento falla, es reemplazada inmediatamente por un repuesto y enviada a reparación. La diferencia principal es que ahora hay dos técnicos trabajando en paralelo, por lo que pueden repararse hasta dos cajas averiadas simultáneamente. Si ambos técnicos están ocupados, las nuevas cajas averiadas quedan esperando hasta que alguno termine su reparación.
+
+Usamos las siguientes variables:
+
+- **Tiempo \*t\***: tiempo de simulación transcurrido.
+- **Estado \*r\***: número total de cajas averiadas al tiempo *t*, incluyendo tanto las que están siendo reparadas como las que están esperando reparación.
+- **Generadora de tiempos de falla \*generar_falla\***: generará los tiempos de funcionamiento de las máquinas desde que entran en uso hasta que fallan.
+- **Generadora de tiempos de reparación \*generar_reparacion\***: generará los tiempos que tarda cada técnico en reparar una caja averiada.
+- **Tiempos de falla \*tiempos_falla\***: arreglo que contiene los tiempos de falla de las *N* cajas que se encuentran en funcionamiento, ya sean originales o repuestos.
+- **Técnicos disponibles \*tecnicos_disponibles\***: cantidad de técnicos libres en cada instante de la simulación.
+- **Tiempos de finalización de reparación \*tiempos_fin_rep\***: arreglo que contiene los tiempos de finalización de reparación de cada técnico. Si un técnico está libre, su tiempo asociado es infinito.
+- **Tiempo de colapso \*T\***: tiempo en el que el sistema colapsó.
+
+El algoritmo implementado puede desglosarse en pasos:
+
+1. Se inicializan las variables y estructuras auxiliares para el correcto funcionamiento del programa:
+   - *t*, *r* = 0.
+   - Se crea un arreglo *tiempos_falla* con los *N* tiempos de falla para cada una de las cajas en funcionamiento, ya sean originales o repuestos. Son generados por *generar_falla*. El arreglo debe quedar con los tiempos ordenados de menor a mayor.
+   - Se inicializa *tecnicos_disponibles* = 2, ya que al comienzo ambos técnicos están libres.
+   - Se crea un arreglo *tiempos_fin_rep* con dos valores infinitos, uno por cada técnico, ya que inicialmente no hay ninguna caja en reparación.
+
+Mientras la cantidad de cajas averiadas *r* no supere a la cantidad de cajas de repuesto *S*:
+
+1. Encuentro el próximo evento a ocurrir. Este puede ser el fallo de una caja o la finalización de una reparación por parte de alguno de los técnicos.
+
+   - La próxima falla está dada por el menor valor del arreglo *tiempos_falla*.
+   - La próxima finalización de reparación está dada por el menor valor del arreglo *tiempos_fin_rep*.
+
+   El próximo evento será el mínimo entre ambos tiempos.
+
+2. **Si es un fallo**:
+
+   i. Actualizo el tiempo transcurrido *t* al instante en que ocurre la falla.
+
+   ii. Aumento en una unidad la cantidad de cajas averiadas *r*.
+
+   iii. Chequeo si las cajas averiadas *r* superan a los repuestos *S*. Si lo hacen, finalizo la simulación porque el sistema colapsó.
+
+   iv. Si el sistema no colapsa, la caja fallada es reemplazada inmediatamente por un repuesto. Entonces genero un nuevo tiempo de funcionamiento con *generar_falla* para ese repuesto y actualizo el arreglo *tiempos_falla*. Luego reordeno dicho arreglo.
+
+   v. Si hay al menos un técnico disponible, la caja averiada comienza a ser reparada inmediatamente. Para ello genero un tiempo de reparación con *generar_reparacion*, actualizo el tiempo de finalización de reparación correspondiente a ese técnico y disminuyo en uno la cantidad de técnicos disponibles.
+
+   vi. Si no hay técnicos disponibles, la caja averiada queda esperando. En este caso no se genera todavía un nuevo tiempo de reparación, ya que la reparación comenzará recién cuando alguno de los técnicos quede libre.
+
+3. **Si es la finalización de una reparación**:
+
+   i. Actualizo el tiempo transcurrido *t* al instante en que termina la reparación.
+
+   ii. Identifico cuál de los técnicos terminó su reparación y lo marco como disponible.
+
+   iii. Disminuyo en una unidad la cantidad de cajas averiadas *r*, ya que una caja fue reparada.
+
+   iv. Calculo cuántos técnicos siguen ocupados y, a partir de eso, cuántas cajas averiadas permanecen esperando reparación. Esto es necesario porque no toda caja averiada está necesariamente esperando: algunas pueden estar siendo reparadas por el otro técnico.
+
+   v. Si hay cajas averiadas esperando y hay un técnico libre, asigno inmediatamente una nueva reparación a ese técnico. Para ello genero un nuevo tiempo de reparación con *generar_reparacion* y actualizo el tiempo de finalización correspondiente.
+
+   vi. Finalmente, reordeno el arreglo *tiempos_fin_rep* para poder identificar correctamente cuál será la próxima reparación en finalizar.
+
+Cuando la cantidad de cajas averiadas *r* supere a los repuestos *S*:
+
+4. Asigno a *T* el tiempo transcurrido *t* y lo doy como dato de salida.
+
+
+
