@@ -317,6 +317,8 @@ def sim_reparacion_dos_tecnicos(N, S, TF, TR, generar_falla, generar_reparacion)
     t = 0
     # Máquinas averiadas
     r = 0
+    # Máquinas esperando reparación (máquinas averiadas que no pueden ser reparadas aún por falta de técnicos)
+    esperando_rep = 0
     # Tiempos de falla
     tiempos_falla = []
     for i in range(N):
@@ -334,7 +336,7 @@ def sim_reparacion_dos_tecnicos(N, S, TF, TR, generar_falla, generar_reparacion)
         # Si viene primero una falla...
         if prox_evento == prox_falla:
             t = prox_evento
-            r += 1
+            r += 1 
             if r > S:
                 break
             # Si hay técnico libre, inicio una reparación.
@@ -358,12 +360,39 @@ def sim_reparacion_dos_tecnicos(N, S, TF, TR, generar_falla, generar_reparacion)
             tiempos_fin_rep[indice] = inf
             tecnicos_disponibles += 1
             r -= 1
-            # Si aún hay máquinas averiadas y hay técnico libre, asigno otra reparación.
-            if r > 0 and tecnicos_disponibles > 0:
+            # Cantidad de técnicos que siguen ocupados después de liberar al que terminó.
+            tecnicos_ocupados = 2 - tecnicos_disponibles
+            # Máquinas averiadas que NO están siendo reparadas por ningún técnico.
+            maquinas_esperando = r - tecnicos_ocupados
+            # Si hay máquinas esperando y un técnico libre, empieza una nueva reparación.
+            if maquinas_esperando > 0 and tecnicos_disponibles > 0:
                 tecnicos_disponibles -= 1
                 rep = generar_reparacion(TR)
                 tiempos_fin_rep[indice] = t + rep
-                tiempos_fin_rep.sort()
+            tiempos_fin_rep.sort()
     # Registro el tiempo de colapso
     T = t
     return T
+
+print("\n=== SIMULACIÓN CON DOS TÉCNICOS DE REPARACIÓN ===")
+
+# =============================================================================
+# ESTIMACIÓN DE PARÁMETROS PARA EL PROBLEMA CON DOS TÉCNICOS
+# =============================================================================
+# Parámetros del sistema que se van a simular, mismos que antes.
+
+# Genero las M realizaciones del tiempo de colapso del sistema, esta vez con dos técnicos de reparación.
+print(f"Ejecutando {M} simulaciones del sistema...")
+tiempos_reales = np.array([sim_reparacion_dos_tecnicos(N_maquinas, S_repuestos, TF_medio, TR_medio,expovariate, expovariate) for _ in range(M)])
+
+# Estimadores puntuales a partir de la muestra simulada
+media_muestral = np.mean(tiempos_reales)
+desvio_muestral = np.std(tiempos_reales, ddof=1) # ddof=1 para estimador S (muestral)
+
+# Muestro los resultados principales de la simulación
+print("-" * 40)
+print(f"RESULTADOS ESTIMACIONES:")
+print(f"MTTF (Tiempo Medio al Fallo): {media_muestral:.4f} meses")
+print(f"Desviación Estándar (S): {desvio_muestral:.4f} meses")
+print("-" * 40)
+
