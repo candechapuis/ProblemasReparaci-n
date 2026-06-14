@@ -221,10 +221,6 @@ En consecuencia, aunque tanto Gamma como Weibull eran candidatas razonables desd
 
 ### Sistema con dos técnicos
 
-## Simulación del modelo con dos técnicos
-
-## Simulación del modelo con dos técnicos
-
 Para analizar la alternativa de contratar un segundo técnico, escribimos un nuevo programa que simula el modelo de reparación para *N* cajas registradoras, *S* cajas de repuesto, *TF* tiempo medio hasta fallar de las máquinas y *TR* tiempo medio que tarda cada técnico en reparar una máquina.
 
 La estructura general es similar al caso con un solo técnico: cuando una caja en funcionamiento falla, es reemplazada inmediatamente por un repuesto y enviada a reparación. La diferencia principal es que ahora hay dos técnicos trabajando en paralelo, por lo que pueden repararse hasta dos cajas averiadas simultáneamente. Si ambos técnicos están ocupados, las nuevas cajas averiadas quedan esperando hasta que alguno termine su reparación.
