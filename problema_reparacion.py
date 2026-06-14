@@ -11,28 +11,29 @@ from random import expovariate
 
 def sim_reparacion(N, S, TF, TR, generar_falla, generar_reparacion):
     """
-    Simulación de un sistema con N máquinas en funcionamiento
-    y S máquinas de repuesto.
+    Simula el tiempo hasta el colapso de un sistema con N máquinas
+    operativas y S máquinas de repuesto.
 
     Parámetros:
-        N (int) : 
-            número de máquinas en funcionamiento.
-        S (int) : 
-            número de máquinas de repuesto.
-        TF (float) : 
-            tiempo medio de funcionamiento de una máquina antes de fallar.
-        TR (float) : 
-            tiempo medio de reparación de una máquina averiada.
-        generar_falla (callable[float]) : 
-            función que  recibe TF y genera un tiempo aleatorio de 
-            funcionamiento de una máquina antes de fallar.
-        generar_reparación (callable[float]) : 
-            función que recibe TR y genera un tiempo aleatorio de
-            reparación de una máquina averiada.
-    
+        N (int):
+            Número de máquinas en funcionamiento.
+        S (int):
+            Número de máquinas de repuesto disponibles.
+        TF (float):
+            Tiempo medio de funcionamiento de una máquina antes de fallar.
+        TR (float):
+            Tiempo medio de reparación de una máquina averiada.
+        generar_falla (callable):
+            Función que recibe TF y genera un tiempo aleatorio de
+            funcionamiento antes de la siguiente falla.
+        generar_reparacion (callable):
+            Función que recibe TR y genera un tiempo aleatorio de
+            reparación.
+
     Dato de salida:
         T (float):
-            tiempo de colapso del sistema.
+            Tiempo de colapso del sistema, medido en la misma unidad que
+            TF y TR.
     """
     # t
     # Tiempo de simulación transcurrido
@@ -86,18 +87,22 @@ def sim_reparacion(N, S, TF, TR, generar_falla, generar_reparacion):
 # =============================================================================
 # ESTIMACIÓN DE PARÁMETROS
 # =============================================================================
+# Parámetros del sistema que se van a simular
 N_maquinas = 7
 S_repuestos = 3
 TF_medio = 1.0     # 1 mes
 TR_medio = 1/8.0   # 0.125 meses
-M = 10000          
+M = 10000          # Número total de réplicas de simulación
 
+# Genero las M realizaciones del tiempo de colapso del sistema
 print(f"Ejecutando {M} simulaciones del sistema...")
 tiempos_reales = np.array([sim_reparacion(N_maquinas, S_repuestos, TF_medio, TR_medio,expovariate, expovariate) for _ in range(M)])
 
+# Estimadores puntuales a partir de la muestra simulada
 media_muestral = np.mean(tiempos_reales)
 desvio_muestral = np.std(tiempos_reales, ddof=1) # ddof=1 para estimador S (muestral)
 
+# Muestro los resultados principales de la simulación
 print("-" * 40)
 print(f"RESULTADOS ESTIMACIONES:")
 print(f"MTTF (Tiempo Medio al Fallo): {media_muestral:.4f} meses")
@@ -109,6 +114,30 @@ print("-" * 40)
 # =============================================================================
 
 def calcular_T_Pearson_Gamma(datos, bins, params):
+    """
+    Calcula el estadístico de Pearson para evaluar la bondad de ajuste
+    de una distribución Gamma a un conjunto de datos simulados.
+
+    Parámetros:
+        datos (array-like):
+            Muestra de datos simulados. En este caso, contiene los tiempos
+            de colapso del sistema obtenidos mediante simulación.
+
+        bins (array-like):
+            Extremos de los intervalos utilizados para agrupar los datos.
+            Estos intervalos permiten comparar las frecuencias observadas
+            con las frecuencias esperadas bajo la distribución ajustada.
+
+        params (tuple):
+            Parámetros de la distribución Gamma ajustada a los datos.
+            Son los parámetros devueltos por stats.gamma.fit.
+
+    Dato de salida:
+        T (float):
+            Valor del estadístico de Pearson, calculado como la suma de
+            las diferencias cuadráticas entre frecuencias observadas y
+            esperadas, normalizadas por la frecuencia esperada.
+    """
     # Cuenta cuántos datos caen en cada intervalo del histograma
     obs, _ = np.histogram(datos, bins=bins)
     n_total = len(datos)
@@ -124,15 +153,19 @@ def calcular_T_Pearson_Gamma(datos, bins, params):
     # Estadístico de Pearson
     return np.sum((obs - esp)**2 / esp)
 
+# Ajuste de la distribución Gamma a los datos simulados
 params_reales_g = stats.gamma.fit(tiempos_reales)
-k_bins = 20 
+
+# Defino los intervalos usados para el test de bondad de ajuste para ambas distribuciones
+k_bins = 20
 _, bins_test = np.histogram(tiempos_reales, bins=k_bins)
 
+# Estadístico observado para la Gamma sobre los datos reales
 t_obs = calcular_T_Pearson_Gamma(tiempos_reales, bins_test, params_reales_g)
 
-print("Calculando p-valor simulado (esto puede tardar unos segundos)...")
+# Simulación del p-valor para evaluar la bondad de ajuste Gamma
 M_pvalor = 1000 # Número de muestras para el test
-conteo_extremos = 0
+excesos_g = 0
 
 for _ in range(M_pvalor):
     muestra_ficticia = stats.gamma.rvs(*params_reales_g, size=M)
@@ -143,15 +176,15 @@ for _ in range(M_pvalor):
     t_sim = calcular_T_Pearson_Gamma(muestra_ficticia, bins_test, params_ficticios)
     
     if t_sim >= t_obs:
-        conteo_extremos += 1
+        excesos_g += 1
 
-p_valor = conteo_extremos / M_pvalor
+p_valor_g = excesos_g / M_pvalor
 
 print(f"\nRESULTADOS PRUEBAS Bondad de Ajuste Gamma:")
 print(f"Estadístico T observado: {t_obs:.4f}")
-print(f"p-valor: {p_valor:.4f}")
+print(f"p-valor: {p_valor_g:.4f}")
 
-if p_valor < 0.05:
+if p_valor_g < 0.05:
     print("CONCLUSIÓN: Se rechaza H0 (La Gamma no ajusta bien).")
 else:
     print("CONCLUSIÓN: No se rechaza H0 (La Gamma es un buen modelo).")
@@ -162,6 +195,30 @@ else:
 # =============================================================================
 
 def calcular_T_Pearson_Weibull(datos, bins, params):
+    """
+    Calcula el estadístico de Pearson para evaluar la bondad de ajuste
+    de una distribución Weibull a un conjunto de datos simulados.
+
+    Parámetros:
+        datos (array-like):
+            Muestra de datos simulados. En este caso, contiene los tiempos
+            de colapso del sistema obtenidos mediante simulación.
+
+        bins (array-like):
+            Extremos de los intervalos utilizados para agrupar los datos.
+            Estos intervalos permiten comparar las frecuencias observadas
+            con las frecuencias esperadas bajo la distribución ajustada.
+
+        params (tuple):
+            Parámetros de la distribución Weibull ajustada a los datos.
+            Son los parámetros devueltos por stats.weibull_min.fit.
+
+    Dato de salida:
+        T (float):
+            Valor del estadístico de Pearson, calculado como la suma de
+            las diferencias cuadráticas entre frecuencias observadas y
+            esperadas, normalizadas por la frecuencia esperada.
+    """
     # Cuenta cuántos datos caen en cada intervalo del histograma
     obs, _ = np.histogram(datos, bins=bins)
     n_total = len(datos)
@@ -180,10 +237,11 @@ def calcular_T_Pearson_Weibull(datos, bins, params):
     # Estadístico de Pearson
     return np.sum((obs - esp)**2 / esp)
 
-# Ajuste real Weibull
+# Ajuste de la distribución Weibull a los datos simulados
 params_reales_w = stats.weibull_min.fit(tiempos_reales)
 t_obs_w = calcular_T_Pearson_Weibull(tiempos_reales, bins_test, params_reales_w)
 
+# Simulación del p-valor para evaluar la bondad de ajuste Weibull
 print("Simulando p-valor Weibull...")
 excesos_w = 0
 for _ in range(M_pvalor):
@@ -205,14 +263,15 @@ else:
     print("CONCLUSIÓN: No se rechaza H0 (La Weibull es un modelo plausible).")
 
 # =============================================================================
-# 4. GRÁFICOS
+# GRÁFICOS
 # =============================================================================
+# Genero el gráfico comparativo entre los ajustes Gamma y Weibull
 plt.figure(figsize=(10, 5))
 plt.hist(tiempos_reales, bins=50, density=True, alpha=0.5, color='gray', label='Datos Simulados')
 
 x = np.linspace(0, max(tiempos_reales), 200)
 # Curva Gamma
-plt.plot(x, stats.gamma.pdf(x, *params_reales_g), 'r-', lw=2, label=f'Ajuste Gamma (p={p_valor:.3f})')
+plt.plot(x, stats.gamma.pdf(x, *params_reales_g), 'r-', lw=2, label=f'Ajuste Gamma (p={p_valor_g:.3f})')
 # Curva Weibull
 plt.plot(x, stats.weibull_min.pdf(x, *params_reales_w), 'b--', lw=2, label=f'Ajuste Weibull (p={p_valor_w:.3f})')
 
