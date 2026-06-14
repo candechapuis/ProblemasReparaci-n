@@ -68,7 +68,7 @@ Cuando la cantidad de cajas averiadas *r* supere a los repuestos *S*:
 
 *Aclaración:* Para este problema particular, en donde las cajas son idénticas y los tiempos son exponenciales independientes, no es necesario llevar registro de **qué** caja particular falló. Lo importante aquí es **cuántas** cajas están averiadas en simultáneo y si superan o no a la cantidad de repuestos disponibles.
 
-# Resultados y Análisis Estadístico (Ejercicio 1)
+## Resultados y Análisis Estadístico
 
 Para validar el comportamiento del sistema bajo las condiciones iniciales, se realizaron **M = 10.000** simulaciones utilizando los parámetros:
 
@@ -77,22 +77,22 @@ Para validar el comportamiento del sistema bajo las condiciones iniciales, se re
 * **TF = 1.0** mes (tiempo medio hasta la falla).
 * **TR = 0.125** meses (tiempo medio de reparación).
 
----
+-------------------------------
 
-## 1. Estimación de Parámetros (Punto B)
+### Estimación de Parámetros
 
-A partir de las muestras obtenidas se calcularon los estimadores puntuales para el tiempo medio de fallo del sistema (MTTF) y su dispersión, utilizando los estimadores muestrales insesgados presentados en las Secciones 7.3.4 y 7.3.5 de las notas.
+A partir de las muestras obtenidas se calcularon los estimadores puntuales para el tiempo medio de fallo del sistema (MTTF) y su dispersión, utilizando los estimadores muestrales insesgados media muestral y varianza muestral.
 
-| Métrica                      | Símbolo   | Valor Simulado |
-| ---------------------------- | --------- | -------------- |
-| Tiempo Medio al Fallo (MTTF) | $\bar{X}$ | 0.5774 meses   |
-| Desviación Estándar Muestral | $S$       | 0.2941 meses   |
+| Métrica                      | Valor Simulado |
+| ---------------------------- | -------------- |
+| Tiempo Medio al Fallo (MTTF) | 0.5774 meses   |
+| Desviación Estándar Muestral | 0.2941 meses   |
 
 ### Interpretación de los resultados
 
-El MTTF obtenido (~0.58 meses) es notablemente inferior al tiempo medio de falla individual de una caja registradora ($TF = 1$ mes). Este comportamiento evidencia que el principal factor limitante del sistema es la tasa de falla combinada de las siete cajas operando simultáneamente.
+El MTTF obtenido (~0.58 meses) es notablemente inferior al tiempo medio de falla individual de una caja registradora (TF = 1 mes). Este comportamiento evidencia que el principal factor limitante del sistema es la tasa de falla combinada de las siete cajas operando simultáneamente.
 
-Dado que cada caja falla con tasa $\lambda = 1$, la tasa total de fallas del sistema es aproximadamente:
+Dado que cada caja falla con tasa $/lambda = 1$, la tasa total de fallas del sistema es aproximadamente:
 
 $$
 \lambda_{total} = 7
@@ -106,14 +106,14 @@ $$
 
 La cercanía entre ambas tasas implica que el sistema opera en un régimen de alta utilización. En estas condiciones, pequeñas acumulaciones de fallas pueden superar rápidamente la capacidad de reparación disponible, provocando el colapso del sistema en tiempos relativamente cortos.
 
----
+-------------------------------
 
-## 2. Análisis de Distribución y Bondad de Ajuste (Punto C)
+### Análisis de Distribución y Bondad de Ajuste
 
-Con el objetivo de caracterizar estadísticamente el tiempo hasta el colapso, se analizó el histograma de frecuencias obtenido a partir de las simulaciones y se evaluaron dos modelos probabilísticos alternativos:
+Con el objetivo de caracterizar estadísticamente el tiempo hasta el colapso, se analizó el histograma de frecuencias obtenido a partir de las simulaciones y se evaluaron dos modelos probabilísticos alternativos: 
 
-* Distribución Gamma.
-* Distribución Normal.
+* Distribución Gamma 
+* Distribución Weibull. 
 
 ![Comparación de ajustes](grafico_comparativo.png)
 
@@ -123,13 +123,22 @@ El histograma presenta una marcada **asimetría positiva** y una densidad práct
 
 Esta característica tiene una interpretación física importante: dado que el sistema dispone de **3 máquinas de repuesto**, resulta imposible que colapse instantáneamente. Para alcanzar el estado de fallo global es necesario acumular al menos **4 fallas simultáneas**.
 
-La Distribución Gamma modela naturalmente este fenómeno mediante su parámetro de forma ($\alpha$), mientras que la Distribución Normal presenta limitaciones evidentes, ya que asigna probabilidad a valores cercanos a cero e incluso a tiempos negativos, los cuales carecen de significado físico en este contexto.
+Tanto la Distribución Gamma como la Distribución Weibull resultan razonables para este análisis, ya que ambas están definidas para valores positivos y pueden representar distribuciones asimétricas. La Gamma es una candidata natural cuando se estudian tiempos acumulados hasta que ocurren varios eventos, mientras que la Weibull es frecuentemente utilizada para modelar tiempos de vida o tiempos hasta la falla. Por ello, ambas distribuciones son compatibles, al menos desde el punto de vista cualitativo, con la forma observada en el histograma.
 
 ---
 
 ### Validación mediante Test $\chi^2$ con Re-estimación
 
-Para evitar el sesgo asociado a la estimación de parámetros sobre la misma muestra utilizada para evaluar el ajuste, se siguió el procedimiento recomendado en las páginas 147 y 155 de las notas de la materia.
+Para evaluar si los tiempos de colapso simulados pueden ser modelados mediante una determinada distribución teórica, se realizó una prueba de bondad de ajuste. Para cada distribución candidata se planteó la hipótesis nula:
+$$
+\
+H_0: \text{los tiempos de colapso provienen de la distribución ajustada}
+$$
+frente a la hipótesis alternativa:
+$$
+H_1: \text{los tiempos de colapso no provienen de dicha distribución.}
+$$
+Como los tiempos de colapso son variables continuas, para aplicar el estadístico de Pearson se agruparon previamente los datos en $k$ intervalos o clases. En cada intervalo se comparó la frecuencia observada con la frecuencia esperada bajo la distribución ajustada.
 
 Se empleó el estadístico de Pearson:
 
@@ -139,35 +148,46 @@ $$
 
 donde:
 
-* $O_i$ representa la frecuencia observada en el intervalo $i$.
-* $E_i$ representa la frecuencia esperada bajo la distribución ajustada.
+* donde:
+  - $N_i$ representa la frecuencia observada en el intervalo $i$.
+  - $n$ es la cantidad total de simulaciones.
+  - $P_i$ es la probabilidad que la distribución ajustada asigna al intervalo $i$.
+  - $nP_i$ representa la frecuencia esperada bajo la distribución ajustada.
 
-El p-valor fue estimado mediante simulación Monte Carlo con **1.000 iteraciones**, re-estimando los parámetros de cada distribución en cada réplica.
+Si el intervalo $i$ tiene extremos $b_i$ y $b_{i+1}$, entonces:
+$$
+P_i = F(b_{i+1}) - F(b_i)
+$$
+donde $F$ es la función de distribución acumulada del modelo ajustado.
+
+Se optó por esta prueba porque el análisis partió del histograma de los tiempos simulados, por lo que resulta natural comparar frecuencias observadas y esperadas en intervalos. El test de Kolmogorov-Smirnov también es una alternativa válida para datos continuos, ya que compara la función de distribución empírica con la función de distribución teórica sin agrupar los datos. Sin embargo, en este trabajo se utilizó el test de Pearson sobre datos agrupados.
+
+Dado que los parámetros de cada distribución fueron estimados a partir de la misma muestra utilizada para evaluar el ajuste, el p-valor no se obtuvo directamente de una tabla $\chi^2$. En su lugar, se estimó mediante simulación Monte Carlo con 1.000 iteraciones. En cada iteración se generó una muestra ficticia desde la distribución ajustada, se reestimaron sus parámetros y se recalculó el estadístico de Pearson. Finalmente, el p-valor se estimó como la proporción de réplicas en las que el estadístico simulado resultó mayor o igual al estadístico observado.
 
 Los resultados obtenidos fueron:
 
 | Distribución Hipotética | Estadístico T (Pearson) | p-valor Simulado | Veredicto           |
 | ----------------------- | ----------------------- | ---------------- | ------------------- |
 | Gamma                   | 13.9419                 | 0.6610           | No se rechaza $H_0$ |
-| Normal                  | 2711.5849               | 0.0000           | Se rechaza $H_0$    |
+| Weibull                 | 301.2051                | < 0.001          | Se rechaza $H_0$    |
 
 ---
 
 ## Conclusión del Análisis
 
-### Rechazo de la Distribución Normal
+### Rechazo de la Distribución Weibull
 
-La hipótesis de normalidad es claramente incompatible con los datos observados. A pesar de la gran cantidad de eventos involucrados, el proceso de colapso no satisface las condiciones necesarias para que el Teorema Central del Límite produzca una aproximación normal adecuada.
+La hipótesis de que los tiempos de colapso provienen de una Distribución Weibull fue rechazada por la prueba de bondad de ajuste. El estadístico de Pearson observado resultó elevado en comparación con los valores obtenidos en las réplicas simuladas bajo dicha distribución, y el p-valor simulado fue menor que el nivel de significancia habitual:
+$$
+\alpha = 0.05
+$$
+En particular, dado que se realizaron 1.000 réplicas Monte Carlo para estimar el p-valor, obtener un valor reportado como (0.0000) debe interpretarse como:
+$$
+p < 0.001
+$$
+y no como un p-valor exactamente nulo. Esto indica que, bajo el modelo Weibull ajustado, sería muy poco probable obtener una discrepancia entre frecuencias observadas y esperadas tan grande como la observada en los datos simulados. Por lo tanto, se rechaza la hipótesis nula para la Distribución Weibull.Aceptación de la Distribución Gamma
 
-La principal razón es que:
-
-* Los tiempos son estrictamente positivos.
-* El proceso presenta una fuerte asimetría.
-* El fallo global depende de la acumulación de eventos discretos de falla.
-
-Estas características generan una distribución sesgada hacia la derecha, incompatible con la simetría propia de la Normal.
-
-### Aceptación de la Distribución Gamma
+### No rechazo de la Distribucón Gamma
 
 El ajuste Gamma obtuvo un p-valor de:
 
@@ -191,4 +211,6 @@ $$
 
 sugiere que el colapso ocurre tras la acumulación de aproximadamente cuatro eventos de falla, resultado coherente con el hecho de que el sistema dispone de tres máquinas de repuesto y falla al producirse la cuarta avería simultánea.
 
-En consecuencia, la **Distribución Gamma constituye un modelo estadísticamente robusto y físicamente coherente para describir el tiempo de vida del sistema**.
+Este resultado indica que, de las distribuciones consideradas, la Gamma proporciona el ajuste más adecuado según la prueba de bondad de ajuste realizada. Además, esta conclusión es coherente con la interpretación cualitativa del histograma, ya que los tiempos de colapso son positivos y presentan asimetría hacia la derecha.
+
+En consecuencia, aunque tanto Gamma como Weibull eran candidatas razonables desde el punto de vista morfológico, la prueba estadística favorece claramente a la Distribución Gamma como modelo para describir los tiempos de colapso del sistema simulado.
