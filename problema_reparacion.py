@@ -395,4 +395,410 @@ print(f"RESULTADOS ESTIMACIONES:")
 print(f"MTTF (Tiempo Medio al Fallo): {media_muestral:.4f} meses")
 print(f"Desviación Estándar (S): {desvio_muestral:.4f} meses")
 print("-" * 40)
+# =============================================================================
+# FUNCIONES AUXILIARES PARA EJERCICIOS 3 Y 4
+# =============================================================================
 
+def calcular_estadisticas_descriptivas(tiempos):
+    """Calcula estadísticas descriptivas completas."""
+    return {
+        'media': np.mean(tiempos),
+        'desv_est': np.std(tiempos, ddof=1),
+        'varianza': np.var(tiempos, ddof=1),
+        'minimo': np.min(tiempos),
+        'maximo': np.max(tiempos),
+        'mediana': np.median(tiempos),
+        'q1': np.percentile(tiempos, 25),
+        'q3': np.percentile(tiempos, 75),
+        'iqr': np.percentile(tiempos, 75) - np.percentile(tiempos, 25),
+        'asimetria': stats.skew(tiempos),
+        'curtosis': stats.kurtosis(tiempos),
+    }
+
+def test_bondad_ajuste_completo(datos, distribucion='gamma', n_iteraciones=250):
+    """
+    Test de bondad de ajuste OPTIMIZADO (rápido para 10000 simulaciones).
+    Reducido a 250 iteraciones MC para mantener tiempo razonable.
+    """
+    print(f"  → Calculando parámetros de {distribucion}...")
+    
+    if distribucion == 'gamma':
+        try:
+            params = stats.gamma.fit(datos, floc=0)
+            calc_T = calcular_T_Pearson_Gamma
+            rvs_func = stats.gamma.rvs
+            nombre_dist = 'Gamma'
+        except:
+            params = stats.gamma.fit(datos)
+            calc_T = calcular_T_Pearson_Gamma
+            rvs_func = stats.gamma.rvs
+            nombre_dist = 'Gamma'
+    else:  # weibull
+        try:
+            params = stats.weibull_min.fit(datos, floc=0)
+            calc_T = calcular_T_Pearson_Weibull
+            rvs_func = stats.weibull_min.rvs
+            nombre_dist = 'Weibull'
+        except:
+            params = stats.weibull_min.fit(datos)
+            calc_T = calcular_T_Pearson_Weibull
+            rvs_func = stats.weibull_min.rvs
+            nombre_dist = 'Weibull'
+    
+    _, bins = np.histogram(datos, bins=20)
+    t_obs = calc_T(datos, bins, params)
+    
+    print(f"  → Simulando p-valor con {n_iteraciones} iteraciones...")
+    
+    excesos = 0
+    for iteracion in range(n_iteraciones):
+        if (iteracion + 1) % 50 == 0:
+            print(f"    Iteración {iteracion + 1}/{n_iteraciones}...", end='\r')
+        
+        try:
+            muestra_fic = rvs_func(*params, size=len(datos))
+            
+            if distribucion == 'gamma':
+                try:
+                    params_fic = stats.gamma.fit(muestra_fic, floc=0)
+                except:
+                    params_fic = params
+            else:
+                try:
+                    params_fic = stats.weibull_min.fit(muestra_fic, floc=0)
+                except:
+                    params_fic = params
+            
+            t_sim = calc_T(muestra_fic, bins, params_fic)
+            
+            if t_sim >= t_obs:
+                excesos += 1
+        except:
+            continue
+    
+    print(f"    Iteración {n_iteraciones}/{n_iteraciones}... ✓")
+    
+    p_valor = excesos / n_iteraciones
+    rechazar = p_valor < 0.05
+    conclusion = "No se rechaza H0" if not rechazar else "Se rechaza H0"
+    
+    return {
+        'distribucion': nombre_dist,
+        'params': params,
+        't_observado': t_obs,
+        'p_valor': p_valor,
+        'rechazar': rechazar,
+        'conclusion': conclusion,
+        'bins': bins
+    }
+
+# =============================================================================
+# GRÁFICOS
+# =============================================================================
+
+def grafico_histograma_original(tiempos, stats_desc, test_gamma):
+    """Genera histograma con curva Gamma ajustada."""
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    n, bins, patches = ax.hist(tiempos, bins=50, density=True, 
+                               alpha=0.65, color='#419D78',
+                               edgecolor='black', linewidth=1.2,
+                               label=f'Datos Simulados (n={len(tiempos)})')
+    
+    x = np.linspace(0, np.max(tiempos), 300)
+    y_gamma = stats.gamma.pdf(x, *test_gamma['params'])
+    ax.plot(x, y_gamma, 'r-', lw=3, label='Ajuste Gamma', zorder=5)
+    
+    media = stats_desc['media']
+    ax.axvline(media, color='darkgreen', linestyle='--', linewidth=2.5, 
+              label=f'Media = {media:.4f} meses', zorder=4)
+    
+    desv = stats_desc['desv_est']
+    ax.axvline(media - desv, color='orange', linestyle=':', linewidth=2, alpha=0.7)
+    ax.axvline(media + desv, color='orange', linestyle=':', linewidth=2, alpha=0.7,
+              label=f'±1σ = ±{desv:.4f} meses')
+    
+    ax.set_xlabel('Tiempo de Colapso (meses)', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Densidad de Probabilidad', fontsize=12, fontweight='bold')
+    ax.set_title('EJERCICIO 3: Histograma de Tiempos de Colapso\nSistema Original (N=7, S=3, 1 Técnico, M=10000)',
+                fontsize=13, fontweight='bold', pad=20)
+    
+    textstr = f'MTTF: {media:.4f} meses\nDesv. Est.: {desv:.4f} meses\n'
+    textstr += f'Min: {stats_desc["minimo"]:.4f} | Max: {stats_desc["maximo"]:.4f}\n'
+    textstr += f'Asimetría: {stats_desc["asimetria"]:.4f}\np-valor Gamma: {test_gamma["p_valor"]:.4f}'
+    
+    ax.text(0.98, 0.97, textstr, transform=ax.transAxes,
+           fontsize=10, verticalalignment='top', horizontalalignment='right',
+           bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
+           family='monospace')
+    
+    ax.legend(fontsize=11, loc='upper left', framealpha=0.95)
+    ax.grid(True, alpha=0.3, linestyle='--')
+    ax.set_ylim(bottom=0)
+    
+    plt.tight_layout()
+    plt.savefig('03_histograma_original.png', dpi=300, bbox_inches='tight')
+    print("✓ Gráfico guardado: 03_histograma_original.png")
+    plt.close()
+
+def analizar_caracteristicas_histograma(tiempos, stats_desc):
+    """Análisis detallado del histograma."""
+    print("\n" + "="*80)
+    print("ANÁLISIS DETALLADO - EJERCICIO 3")
+    print("="*80)
+    
+    print("\n1. MEDIDAS DE TENDENCIA CENTRAL:")
+    print(f"   • Media (MTTF): {stats_desc['media']:.4f} meses")
+    print(f"   • Mediana: {stats_desc['mediana']:.4f} meses")
+    print(f"   • Diferencia Media-Mediana: {(stats_desc['media'] - stats_desc['mediana']):.4f} meses")
+    
+    print("\n2. MEDIDAS DE DISPERSIÓN:")
+    print(f"   • Desviación Estándar: {stats_desc['desv_est']:.4f} meses")
+    print(f"   • Varianza: {stats_desc['varianza']:.6f}")
+    print(f"   • Rango Intercuartílico (IQR): {stats_desc['iqr']:.4f} meses")
+    
+    print("\n3. RANGO:")
+    print(f"   • Mínimo: {stats_desc['minimo']:.4f} meses")
+    print(f"   • Máximo: {stats_desc['maximo']:.4f} meses")
+    print(f"   • Rango Total: {(stats_desc['maximo'] - stats_desc['minimo']):.4f} meses")
+    
+    print("\n4. FORMA:")
+    print(f"   • Asimetría (Skewness): {stats_desc['asimetria']:.4f}")
+    asimetria_tipo = "POSITIVA (cola derecha)" if stats_desc['asimetria'] > 0 else "NEGATIVA"
+    print(f"   • Tipo: {asimetria_tipo}")
+    print(f"   • Curtosis: {stats_desc['curtosis']:.4f}")
+    
+    print("\n" + "="*80 + "\n")
+
+def grafico_comparativo_tres_sistemas(t_orig, t_dos_tec, t_mas_rep,
+                                      test_g_orig, test_g_dos, test_g_mas):
+    """Gráfico comparativo de los tres sistemas."""
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    
+    sistemas = [
+        (t_orig, 'Sistema Original\n(1 técnico, S=3)', '#2E86AB', test_g_orig),
+        (t_dos_tec, 'Mejora V1: 2 Técnicos\n(2 técnicos, S=3)', '#A23B72', test_g_dos),
+        (t_mas_rep, 'Mejora V2: +1 Repuesto\n(1 técnico, S=4)', '#F18F01', test_g_mas)
+    ]
+    
+    for idx, (tiempos, titulo, color, test_gamma) in enumerate(sistemas):
+        ax = axes[idx]
+        
+        ax.hist(tiempos, bins=50, density=True, alpha=0.6, 
+               color=color, label='Datos Simulados', edgecolor='black', linewidth=0.8)
+        
+        x = np.linspace(0, np.max(tiempos), 200)
+        y = stats.gamma.pdf(x, *test_gamma['params'])
+        ax.plot(x, y, 'r-', lw=2.5, label='Ajuste Gamma', zorder=5)
+        
+        media = np.mean(tiempos)
+        ax.axvline(media, color='darkgreen', linestyle='--', linewidth=2, 
+                  label=f'μ={media:.4f}', zorder=4)
+        
+        ax.set_title(titulo, fontsize=11, fontweight='bold', pad=10)
+        ax.set_xlabel('Tiempo (meses)', fontsize=10)
+        ax.set_ylabel('Densidad', fontsize=10)
+        ax.legend(fontsize=9, loc='upper right')
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(bottom=0)
+        
+        p_val_text = f"p={test_gamma['p_valor']:.4f}"
+        ax.text(0.02, 0.98, p_val_text, transform=ax.transAxes,
+               fontsize=9, verticalalignment='top',
+               bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7))
+    
+    plt.suptitle('EJERCICIO 4: Comparativa de Tres Configuraciones (M=10000)',
+                fontsize=13, fontweight='bold', y=1.00)
+    plt.tight_layout()
+    plt.savefig('04_comparativo_tres_sistemas.png', dpi=300, bbox_inches='tight')
+    print("✓ Gráfico guardado: 04_comparativo_tres_sistemas.png")
+    plt.close()
+
+def tabla_resumen_estadisticas(s_orig, s_dos, s_mas):
+    """Tabla con resumen de estadísticas."""
+    fig, ax = plt.subplots(figsize=(14, 6))
+    ax.axis('tight')
+    ax.axis('off')
+    
+    tabla_data = [
+        ['Métrica', 'Original\n(1 técnico)', '2 Técnicos', '+1 Repuesto\n(S=4)'],
+        ['MTTF (meses)', f"{s_orig['media']:.4f}", f"{s_dos['media']:.4f}", f"{s_mas['media']:.4f}"],
+        ['Desv. Est. (meses)', f"{s_orig['desv_est']:.4f}", f"{s_dos['desv_est']:.4f}", f"{s_mas['desv_est']:.4f}"],
+        ['Mínimo (meses)', f"{s_orig['minimo']:.4f}", f"{s_dos['minimo']:.4f}", f"{s_mas['minimo']:.4f}"],
+        ['Mediana (meses)', f"{s_orig['mediana']:.4f}", f"{s_dos['mediana']:.4f}", f"{s_mas['mediana']:.4f}"],
+        ['Máximo (meses)', f"{s_orig['maximo']:.4f}", f"{s_dos['maximo']:.4f}", f"{s_mas['maximo']:.4f}"],
+    ]
+    
+    table = ax.table(cellText=tabla_data, cellLoc='center', loc='center',
+                    colWidths=[0.25, 0.25, 0.25, 0.25])
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 2.5)
+    
+    for i in range(4):
+        table[(0, i)].set_facecolor('#40466e')
+        table[(0, i)].set_text_props(weight='bold', color='white')
+    
+    for i in range(1, len(tabla_data)):
+        table[(i, 1)].set_facecolor('#2E86AB33')
+        table[(i, 2)].set_facecolor('#A23B7233')
+        table[(i, 3)].set_facecolor('#F1810133')
+    
+    plt.title('Tabla 1: Resumen de Estadísticas Descriptivas (M=10000)',
+             fontsize=12, fontweight='bold', pad=20)
+    plt.savefig('06_tabla_resumen.png', dpi=300, bbox_inches='tight')
+    print("✓ Gráfico guardado: 06_tabla_resumen.png")
+    plt.close()
+
+def tabla_bondad_ajuste(test_g_orig, test_w_orig, test_g_dos, test_w_dos,
+                       test_g_mas, test_w_mas):
+    """Tabla de tests de bondad."""
+    fig, ax = plt.subplots(figsize=(14, 6))
+    ax.axis('tight')
+    ax.axis('off')
+    
+    tabla_test = [
+        ['Sistema', 'Distribución', 'T Pearson', 'p-valor', 'Conclusión'],
+        ['Original', 'Gamma', f"{test_g_orig['t_observado']:.4f}", f"{test_g_orig['p_valor']:.4f}", test_g_orig['conclusion']],
+        ['Original', 'Weibull', f"{test_w_orig['t_observado']:.4f}", f"{test_w_orig['p_valor']:.4f}", test_w_orig['conclusion']],
+        ['2 Técnicos', 'Gamma', f"{test_g_dos['t_observado']:.4f}", f"{test_g_dos['p_valor']:.4f}", test_g_dos['conclusion']],
+        ['2 Técnicos', 'Weibull', f"{test_w_dos['t_observado']:.4f}", f"{test_w_dos['p_valor']:.4f}", test_w_dos['conclusion']],
+        ['+1 Repuesto', 'Gamma', f"{test_g_mas['t_observado']:.4f}", f"{test_g_mas['p_valor']:.4f}", test_g_mas['conclusion']],
+        ['+1 Repuesto', 'Weibull', f"{test_w_mas['t_observado']:.4f}", f"{test_w_mas['p_valor']:.4f}", test_w_mas['conclusion']],
+    ]
+    
+    table = ax.table(cellText=tabla_test, cellLoc='center', loc='center',
+                    colWidths=[0.2, 0.15, 0.2, 0.15, 0.3])
+    table.auto_set_font_size(False)
+    table.set_fontsize(9)
+    table.scale(1, 2.2)
+    
+    for i in range(5):
+        table[(0, i)].set_facecolor('#40466e')
+        table[(0, i)].set_text_props(weight='bold', color='white', size=9)
+    
+    for i in range(1, 3):
+        for j in range(5):
+            table[(i, j)].set_facecolor('#2E86AB22')
+    
+    for i in range(3, 5):
+        for j in range(5):
+            table[(i, j)].set_facecolor('#A23B7222')
+    
+    for i in range(5, 7):
+        for j in range(5):
+            table[(i, j)].set_facecolor('#F1810122')
+    
+    plt.title('Tabla 2: Resultados de Tests de Bondad de Ajuste',
+             fontsize=12, fontweight='bold', pad=20)
+    plt.savefig('07_tabla_tests_bondad.png', dpi=300, bbox_inches='tight')
+    print("✓ Gráfico guardado: 07_tabla_tests_bondad.png")
+    plt.close()
+
+def tabla_comparativa_mejoras(s_orig, s_dos, s_mas):
+    """Tabla comparativa de mejoras."""
+    mejora_dos = ((s_dos['media'] - s_orig['media']) / s_orig['media'] * 100)
+    mejora_mas = ((s_mas['media'] - s_orig['media']) / s_orig['media'] * 100)
+    mejor_opcion = "2 Técnicos" if mejora_dos > mejora_mas else "+1 Repuesto"
+    
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.axis('tight')
+    ax.axis('off')
+    
+    tabla_mejoras = [
+        ['Métrica', '2 Técnicos', '+1 Repuesto', 'Mejor'],
+        ['Mejora MTTF (%)', f"{mejora_dos:+.2f}%", f"{mejora_mas:+.2f}%", mejor_opcion],
+        ['MTTF (meses)', f"{s_dos['media']:.4f}", f"{s_mas['media']:.4f}", 
+         f"{'2 Técnicos' if s_dos['media'] > s_mas['media'] else '+1 Repuesto'}"],
+    ]
+    
+    table = ax.table(cellText=tabla_mejoras, cellLoc='center', loc='center',
+                    colWidths=[0.3, 0.23, 0.23, 0.24])
+    table.auto_set_font_size(False)
+    table.set_fontsize(11)
+    table.scale(1, 2.3)
+    
+    for i in range(4):
+        table[(0, i)].set_facecolor('#40466e')
+        table[(0, i)].set_text_props(weight='bold', color='white')
+    
+    for i in range(1, len(tabla_mejoras)):
+        table[(i, 1)].set_facecolor('#A23B7233')
+        table[(i, 2)].set_facecolor('#F1810133')
+    
+    plt.title('Tabla 3: Análisis Comparativo de Mejoras',
+             fontsize=12, fontweight='bold', pad=20)
+    plt.savefig('08_tabla_comparativa_mejoras.png', dpi=300, bbox_inches='tight')
+    print("✓ Gráfico guardado: 08_tabla_comparativa_mejoras.png")
+    plt.close()
+    
+    return {
+        'mejora_dos_pct': mejora_dos,
+        'mejora_mas_pct': mejora_mas,
+        'mejor_opcion': mejor_opcion
+    }
+
+def ejecutar_ejercicios_3_y_4():
+    """Ejecuta ejercicios 3 y 4 completos."""
+    
+    # Calcular estadísticas del sistema original
+    stats_original = calcular_estadisticas_descriptivas(tiempos_reales)
+    
+    print(f"\n▶ EJERCICIO 3: Realizando test de bondad de ajuste (sistema original)...")
+    test_gamma_orig = test_bondad_ajuste_completo(tiempos_reales, 'gamma', n_iteraciones=250)
+    test_weibull_orig = test_bondad_ajuste_completo(tiempos_reales, 'weibull', n_iteraciones=250)
+    
+    print(f"\n▶ Generando gráfico del Ejercicio 3...")
+    grafico_histograma_original(tiempos_reales, stats_original, test_gamma_orig)
+    analizar_caracteristicas_histograma(tiempos_reales, stats_original)
+    
+    # EJERCICIO 4
+    print("\n" + "="*80)
+    print("EJERCICIO 4: COMPARATIVA DE MEJORAS (M=10000)")
+    print("="*80)
+    
+    print(f"\n▶ MEJORA V1: Simulando con 2 TÉCNICOS...")
+    tiempos_dos = np.array([
+        sim_reparacion_dos_tecnicos(N_maquinas, S_repuestos, TF_medio, TR_medio, expovariate, expovariate)
+        for _ in range(M)
+    ])
+    stats_dos = calcular_estadisticas_descriptivas(tiempos_dos)
+    print(f"✓ MTTF 2 Técnicos: {stats_dos['media']:.4f} meses")
+    
+    print(f"\n▶ MEJORA V2: Simulando con +1 REPUESTO...")
+    tiempos_mas = np.array([
+        sim_reparacion_un_tecnico(N_maquinas, S_repuestos + 1, TF_medio, TR_medio, expovariate, expovariate)
+        for _ in range(M)
+    ])
+    stats_mas = calcular_estadisticas_descriptivas(tiempos_mas)
+    print(f"✓ MTTF +1 Repuesto: {stats_mas['media']:.4f} meses")
+    
+    print(f"\n▶ Realizando tests de bondad de ajuste...")
+    test_gamma_dos = test_bondad_ajuste_completo(tiempos_dos, 'gamma', n_iteraciones=250)
+    test_weibull_dos = test_bondad_ajuste_completo(tiempos_dos, 'weibull', n_iteraciones=250)
+    
+    test_gamma_mas = test_bondad_ajuste_completo(tiempos_mas, 'gamma', n_iteraciones=250)
+    test_weibull_mas = test_bondad_ajuste_completo(tiempos_mas, 'weibull', n_iteraciones=250)
+    
+    print(f"\n▶ Generando gráficos y tablas...")
+    grafico_comparativo_tres_sistemas(tiempos_reales, tiempos_dos, tiempos_mas,
+                                     test_gamma_orig, test_gamma_dos, test_gamma_mas)
+    
+    tabla_resumen_estadisticas(stats_original, stats_dos, stats_mas)
+    tabla_bondad_ajuste(test_gamma_orig, test_weibull_orig,
+                       test_gamma_dos, test_weibull_dos,
+                       test_gamma_mas, test_weibull_mas)
+    
+    resultados = tabla_comparativa_mejoras(stats_original, stats_dos, stats_mas)
+    
+    print("\n" + "="*80)
+    print("RESUMEN FINAL")
+    print("="*80)
+    print(f"Mejora 2 Técnicos: {resultados['mejora_dos_pct']:+.2f}%")
+    print(f"Mejora +1 Repuesto: {resultados['mejora_mas_pct']:+.2f}%")
+    print(f"MEJOR OPCIÓN: {resultados['mejor_opcion']}")
+    print("="*80 + "\n")
+
+if __name__ == "__main__":
+    ejecutar_ejercicios_3_y_4()
+    print("\n>>> PROCESO FINALIZADO")
